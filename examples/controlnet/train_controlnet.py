@@ -548,6 +548,16 @@ def parse_args(input_args=None):
             " more information see https://huggingface.co/docs/accelerate/v0.17.0/en/package_reference/accelerator#accelerate.Accelerator"
         ),
     )
+    parser.add_argument(
+        "--throughput_warmup_steps",
+        type=int,
+        default=0,
+        help=(
+            "Number of steps to ignore for throughput calculation. For example, with throughput_warmup_steps=N, the"
+            " first N steps will not be considered in the calculation of the throughput. This is especially useful in"
+            " lazy mode."
+        ),
+    )
 
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -1128,6 +1138,14 @@ def main(args):
     # Create the pipeline using using the trained modules and save it.
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
+        logger.info(f"Throughput = {throughput} samples/s")
+        logger.info(f"Train runtime = {duration} seconds")
+        metrics = {
+            "train_samples_per_second": throughput,
+            "train_runtime": duration,
+        }
+        with open(f"{args.output_dir}/speed_metrics.json", mode="w") as file:
+            json.dump(metrics, file)
         controlnet = unwrap_model(controlnet)
         controlnet.save_pretrained(args.output_dir)
 
